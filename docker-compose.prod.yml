@@ -35,7 +35,7 @@ services:
     ports:
       - "127.0.0.1:3001:3001"
     volumes:
-      - /mnt/hdd250/lms-uploads:/app/uploads
+      - lms_uploads:/app/uploads
     networks:
       - lms_net
 
@@ -58,6 +58,7 @@ services:
 
 volumes:
   postgres_prod_data:
+  lms_uploads:
 
 networks:
   lms_net:
