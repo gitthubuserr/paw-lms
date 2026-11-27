@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LECTURER
+  STUDENT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relasi
+  taughtClasses Class[]      @relation("LecturerClasses")
+  enrollments   Enrollment[]
+  submissions   Submission[]
+  gradedItems   Grade[]      @relation("GradedByLecturer")
+
+  @@map("users")
+}
+
+model Class {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  lecturerId  Int      @map("lecturer_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lecturer    User         @relation("LecturerClasses", fields: [lecturerId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+  materials   Material[]
+  assignments Assignment[]
+
+  @@map("classes")
+}
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  classId    Int      @map("class_id")
+  studentId  Int      @map("student_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId])
+  @@map("enrollments")
+}
+
+model Material {
+  id         Int      @id @default(autoincrement())
+  classId    Int      @map("class_id")
+  title      String
+  fileUrl    String   @map("file_url")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("materials")
+}
+
+model Assignment {
+  id          Int      @id @default(autoincrement())
+  classId     Int      @map("class_id")
+  title       String
+  description String?
+  deadline    DateTime
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@map("assignments")
+}
+
+model Submission {
+  id           Int      @id @default(autoincrement())
+  assignmentId Int      @map("assignment_id")
+  studentId    Int      @map("student_id")
+  fileUrl      String   @map("file_url")
+  submittedAt  DateTime @default(now()) @map("submitted_at")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grade      Grade?
+
+  @@unique([assignmentId, studentId])
+  @@map("submissions")
+}
+
+model Grade {
+  id           Int      @id @default(autoincrement())
+  submissionId Int      @unique @map("submission_id")
+  score        Float
+  feedback     String?
+  gradedAt     DateTime @default(now()) @map("graded_at")
+  gradedBy     Int      @map("graded_by")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  grader     User       @relation("GradedByLecturer", fields: [gradedBy], references: [id], onDelete: Cascade)
+
+  @@map("grades")
+}

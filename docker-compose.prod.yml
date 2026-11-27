@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: paw-lms-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lms_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: paw-lms-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - lms_uploads:/app/uploads
+    networks:
+      - lms_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+    container_name: paw-lms-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - lms_net
+
+volumes:
+  postgres_prod_data:
+  lms_uploads:
+
+networks:
+  lms_net:
+    driver: bridge
